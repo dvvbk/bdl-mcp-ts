@@ -167,12 +167,12 @@ function zodTypeToJsonSchema(zodType: z.ZodTypeAny): Record<string, unknown> {
 export class MCPServer {
   private serverInfo: ServerInfo;
   private toolHandler: {
-    execute: (name: string, args: Record<string, unknown>) => Promise<CallToolResult>;
+    execute: (name: ToolName, args: Record<string, unknown>) => Promise<CallToolResult>;
   };
 
   constructor(
     serverInfo: ServerInfo,
-    toolHandler: { execute: (name: string, args: Record<string, unknown>) => Promise<CallToolResult> }
+    toolHandler: { execute: (name: ToolName, args: Record<string, unknown>) => Promise<CallToolResult> }
   ) {
     this.serverInfo = serverInfo;
     this.toolHandler = toolHandler;
@@ -270,7 +270,7 @@ export class MCPServer {
     }
 
     // Execute the tool
-    return this.toolHandler.execute(name, parseResult.data);
+    return this.toolHandler.execute(name as ToolName, parseResult.data);
   }
 }
 
