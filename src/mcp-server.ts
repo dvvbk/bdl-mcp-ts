@@ -210,6 +210,12 @@ export class MCPServer {
       case 'tools/call':
         return this.handleCallTool(params as CallToolParams);
 
+      case 'prompts/list':
+        return this.handleListPrompts();
+
+      case 'resources/list':
+        return this.handleListResources();
+
       case 'ping':
         return {};
 
@@ -226,6 +232,8 @@ export class MCPServer {
       protocolVersion: '2024-11-05',
       capabilities: {
         tools: {},
+        prompts: {},
+        resources: {},
       },
       serverInfo: this.serverInfo,
     };
@@ -271,6 +279,16 @@ export class MCPServer {
 
     // Execute the tool
     return this.toolHandler.execute(name as ToolName, parseResult.data);
+  }
+
+  private handleListPrompts(): { prompts: unknown[] } {
+    // This server doesn't provide any prompts, only tools for BDL API
+    return { prompts: [] };
+  }
+
+  private handleListResources(): { resources: unknown[] } {
+    // This server doesn't provide any resources, only tools for BDL API
+    return { resources: [] };
   }
 }
 
