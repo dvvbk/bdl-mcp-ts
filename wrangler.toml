@@ -1,0 +1,21 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "bdl-mcp-server"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers Logs
+# Docs: https://developers.cloudflare.com/workers/observability/logs/workers-logs/
+# Configuration: https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs
+[observability]
+enabled = true
+
+# Durable Objects for session management (optional)
+# [[durable_objects.bindings]]
+# name = "MCP_SESSIONS"
+# class_name = "MCPSessionDO"
+
+# Environment variables
+[vars]
+BDL_API_BASE_URL = "https://bdl.stat.gov.pl/api/v1"
+DEFAULT_LANGUAGE = "pl"
