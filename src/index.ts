@@ -2,7 +2,7 @@
 
 import { BDLClient } from './bdl-client';
 import { ToolHandler } from './tool-handler';
-import { MCPServer, createSSEMessage, createSSEEndpoint } from './mcp-server';
+import { MCPServer } from './mcp-server';
 
 // Environment interface
 interface Env {
@@ -15,9 +15,6 @@ const SERVER_INFO = {
   name: 'bdl-mcp-server',
   version: '1.0.0',
 };
-
-// Active SSE connections for session management
-const sseConnections = new Map<string, { writer: WritableStreamDefaultWriter; encoder: TextEncoder }>();
 
 // Parse JSON-RPC request
 interface JSONRPCRequest {
@@ -41,14 +38,8 @@ function isJSONRPCRequest(data: unknown): data is JSONRPCRequest {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id',
-  'Access-Control-Expose-Headers': 'Mcp-Session-Id',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
-
-// Generate session ID
-function generateSessionId(): string {
-  return crypto.randomUUID();
-}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -79,18 +70,15 @@ export default {
           status: 'ok',
           server: SERVER_INFO,
           endpoints: {
-            sse: '/sse',
-            mcp: '/mcp',
+            mcp: '/mcp (POST)',
           },
+          note: 'Send JSON-RPC 2.0 requests to /mcp endpoint',
         }), {
           headers: {
             'Content-Type': 'application/json',
             ...corsHeaders,
           },
         });
-
-      case '/sse':
-        return handleSSE(request, mcpServer);
 
       case '/mcp':
         return handleMCP(request, mcpServer);
@@ -107,47 +95,7 @@ export default {
   },
 };
 
-// Handle SSE connections (for MCP clients that use Server-Sent Events)
-async function handleSSE(request: Request, mcpServer: MCPServer): Promise<Response> {
-  if (request.method !== 'GET') {
-    return new Response('Method not allowed', {
-      status: 405,
-      headers: corsHeaders,
-    });
-  }
-
-  const sessionId = generateSessionId();
-  
-  // Create SSE stream
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
-
-  // Store connection
-  sseConnections.set(sessionId, { writer, encoder });
-
-  // Send initial endpoint message
-  const endpointMessage = createSSEEndpoint();
-  await writer.write(encoder.encode(endpointMessage));
-
-  // Cleanup on close
-  request.signal.addEventListener('abort', () => {
-    sseConnections.delete(sessionId);
-    writer.close().catch(() => {});
-  });
-
-  return new Response(readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Mcp-Session-Id': sessionId,
-      ...corsHeaders,
-    },
-  });
-}
-
-// Handle MCP JSON-RPC requests (Streamable HTTP)
+// Handle MCP JSON-RPC requests
 async function handleMCP(request: Request, mcpServer: MCPServer): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', {
@@ -187,17 +135,7 @@ async function handleMCP(request: Request, mcpServer: MCPServer): Promise<Respon
 
     // Handle single request
     if (isJSONRPCRequest(body)) {
-      // Check for session ID in header (for SSE-based sessions)
-      const sessionId = request.headers.get('Mcp-Session-Id');
-      
       const response = await mcpServer.handleRequest(body);
-
-      // If this is an SSE session, also send via SSE
-      if (sessionId && sseConnections.has(sessionId)) {
-        const connection = sseConnections.get(sessionId)!;
-        const sseMessage = createSSEMessage('message', response);
-        await connection.writer.write(connection.encoder.encode(sseMessage));
-      }
 
       return new Response(JSON.stringify(response), {
         headers: {
